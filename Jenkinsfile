@@ -148,12 +148,11 @@ spec:
             steps{
                 echo "Waiting the manual test result..."
                 input{
-                    message "Is the manuall test ok?"
-                    ok "Yes, the test passed"
-                    submitter "max"
+                   message "Is the manuall test ok?"
+                   ok "Yes, the test passed"
+                   submitter "max"
                 }
             }
         }
     }
 }//end
-
