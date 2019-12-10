@@ -13,6 +13,7 @@ metadata:
   name: jenkins-slave
   namespace: jenkins-ns
 spec:
+  serviceAccountName: jenkins-admin
   containers:
     - name: jnlp
       image: zspmilan/jnlp-slave:mvn-sonar
@@ -56,25 +57,11 @@ spec:
 '''
         }
     }
+    options{timestamps()}
     stages{
         stage('get code'){
             steps{
                 echo 'getted the code...'
-                sh '''
-                   sed -i '/project>/i <distributionManagement> \
-    <snapshotRepository> \
-        <id>maven-snapshots</id> \
-        <name>User Porject Snapshot</name> \
-        <url>http://192.168.169.3:8081/repository/maven-snapshots/</url> \
-        <uniqueVersion>true</uniqueVersion> \
-    </snapshotRepository> \
-    <repository> \
-        <id>maven-releases</id> \
-        <name>User Porject Release</name> \
-        <url>http://192.168.169.3:8081/repository/maven-releases/</url> \
-    </repository> \
-  </distributionManagement>' pom.xml
-                '''
             }
         }
         stage('check_code_of_feature'){
@@ -117,14 +104,30 @@ spec:
            when{ branch 'release*' }
            steps{
                 echo "on branch release"
-                sh "mvn clean -DskipTests deploy"
+                //sh "mvn clean -DskipTests deploy"
+                script{
+                    configFileProvider([configFile(fileId: 'maven-global-settings', variable: 'MAVEN_SETTING')]) {
+                        Maven_setting = "${MAVEN_SETTING}"
+                        sh "mvn -s ${Maven_setting} clean deploy"
+                    }    
+                }
            }
         }
-       // stage(''){
-       //    when{ branch 'release'}
-       //    steps{
-       //         echo "on branch feature"
-       //    } 
-       // }   
+       stage('package docker image'){
+         environment{
+            nexusDockerUsePwd = credentials('71e6ff25-ceb9-443b-bedf-7c5339c107e7')
+            registry = "http://192.168.169.3:8595"
+         }
+         when{ branch 'release'}
+           steps{
+                echo "on branch feature"
+                sh '''
+                   docker login -u ${nexusDockerUsePwd_USER} -p ${nexusDockerUsePwd_PSW} ${registry}
+                   docker build -t ${registry} .
+                   docker push ${registry}/hello:v1
+                   '''
+           } 
+        }   
     }
 }//end
+
