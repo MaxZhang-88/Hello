@@ -147,12 +147,12 @@ spec:
             when{branch 'release'}
             steps{
                 echo "Waiting the manual test result..."
-                input{
-                   message "Is the manuall test ok?"
-                   ok "Yes, the test passed"
-                   submitter "max"
+            }    
+            input{
+                message "Is the manuall test ok?"
+                ok "Yes, the test passed"
+                submitter "max"
                 }
-            }
         }
     }
 }//end
