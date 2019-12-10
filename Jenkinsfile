@@ -123,7 +123,7 @@ spec:
            steps{
                 echo "Will make the docker image of tomcat and upload it to nexus repo"
                 sh '''
-                   docker login -u ${nexusDockerUsePwd_USER} -p ${nexusDockerUsePwd_PSW} ${registry}
+                   docker login -u ${nexusDockerUsePwd_USR} -p ${nexusDockerUsePwd_PSW} ${registry}
                    docker build -t ${registry}/hello:v1 .
                    docker push ${registry}/hello:v1
                    '''
