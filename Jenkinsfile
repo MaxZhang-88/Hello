@@ -1,3 +1,4 @@
+#!/usr/bin/groovy
 pipeline {
     agent {
         kubernetes {
@@ -57,6 +58,10 @@ spec:
 '''
         }
     }
+    environment{
+            nexusDockerUsePwd = credentials('71e6ff25-ceb9-443b-bedf-7c5339c107e7')
+            registry = "192.168.169.3:8595"
+    }
     options{timestamps()}
     stages{
         stage('get code'){
@@ -114,20 +119,41 @@ spec:
            }
         }
        stage('package docker image'){
-         environment{
-            nexusDockerUsePwd = credentials('71e6ff25-ceb9-443b-bedf-7c5339c107e7')
-            registry = "http://192.168.169.3:8595"
-         }
-         when{ branch 'release'}
+           when{ branch 'release'}
            steps{
-                echo "on branch feature"
+                echo "Will make the docker image of tomcat and upload it to nexus repo"
                 sh '''
                    docker login -u ${nexusDockerUsePwd_USER} -p ${nexusDockerUsePwd_PSW} ${registry}
-                   docker build -t ${registry} .
+                   docker build -t ${registry}/hello:v1 .
                    docker push ${registry}/hello:v1
                    '''
            } 
         }   
+        stage('deploy hello to test'){
+             when{branch 'release'}
+             steps{
+                 echo "Will deploy the hello to test environment!"
+                 sh 'kubectl apply -f hello-project-test.yaml'
+             }
+        }
+        stage('test hello'){
+            when{branch 'release'}
+            steps{
+                echo "Now is testing the hello project...."
+                sh './test.sh'
+            }
+        }
+        stage('manual test'){
+            when{branch 'release'}
+            steps{
+                echo "Waiting the manual test result..."
+                input{
+                    message "Is the manuall test ok?"
+                    ok "Yes, the test passed"
+                    submitter "max"
+                }
+            }
+        }
     }
 }//end
 
