@@ -140,7 +140,10 @@ spec:
             when{branch 'release'}
             steps{
                 echo "Now is testing the hello project...."
-                sh './test.sh'
+                sh '''
+                   chmod u+x test.sh
+                   ./test.sh
+                   '''
             }
         }
         stage('manual test'){
