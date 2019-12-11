@@ -1,3 +1,4 @@
+#!/usr/bin/groovy
 pipeline {
     agent {
         kubernetes {
@@ -13,6 +14,7 @@ metadata:
   name: jenkins-slave
   namespace: jenkins-ns
 spec:
+  serviceAccountName: jenkins-admin
   containers:
     - name: jnlp
       image: zspmilan/jnlp-slave:mvn-sonar
@@ -56,25 +58,15 @@ spec:
 '''
         }
     }
+    environment{
+            nexusDockerUsePwd = credentials('71e6ff25-ceb9-443b-bedf-7c5339c107e7')
+            registry = "192.168.169.3:8595"
+    }
+    options{timestamps()}
     stages{
         stage('get code'){
             steps{
                 echo 'getted the code...'
-                sh '''
-                   sed -i '/project>/i <distributionManagement> \
-    <snapshotRepository> \
-        <id>maven-snapshots</id> \
-        <name>User Porject Snapshot</name> \
-        <url>http://192.168.169.3:8081/repository/maven-snapshots/</url> \
-        <uniqueVersion>true</uniqueVersion> \
-    </snapshotRepository> \
-    <repository> \
-        <id>maven-releases</id> \
-        <name>User Porject Release</name> \
-        <url>http://192.168.169.3:8081/repository/maven-releases/</url> \
-    </repository> \
-  </distributionManagement>' pom.xml
-                '''
             }
         }
         stage('check_code_of_feature'){
@@ -117,14 +109,53 @@ spec:
            when{ branch 'release*' }
            steps{
                 echo "on branch release"
-                sh "mvn clean -DskipTests deploy"
+                //sh "mvn clean -DskipTests deploy"
+                script{
+                    configFileProvider([configFile(fileId: 'maven-global-settings', variable: 'MAVEN_SETTING')]) {
+                        Maven_setting = "${MAVEN_SETTING}"
+                        sh "mvn -s ${Maven_setting} clean deploy"
+                    }    
+                }
            }
         }
-       // stage(''){
-       //    when{ branch 'release'}
-       //    steps{
-       //         echo "on branch feature"
-       //    } 
-       // }   
+       stage('package docker image'){
+           when{ branch 'release'}
+           steps{
+                echo "Will make the docker image of tomcat and upload it to nexus repo"
+                sh '''
+                   docker login -u ${nexusDockerUsePwd_USR} -p ${nexusDockerUsePwd_PSW} ${registry}
+                   docker build -t ${registry}/hello:v1 .
+                   docker push ${registry}/hello:v1
+                   '''
+           } 
+        }   
+        stage('deploy hello to test'){
+             when{branch 'release'}
+             steps{
+                 echo "Will deploy the hello to test environment!"
+                 sh 'kubectl apply -f hello-project-test.yaml'
+             }
+        }
+        stage('test hello'){
+            when{branch 'release'}
+            steps{
+                echo "Now is testing the hello project...."
+                sh '''
+                   chmod u+x test.sh
+                   ./test.sh
+                   '''
+            }
+        }
+        stage('manual test'){
+            when{branch 'release'}
+            steps{
+                echo "Waiting the manual test result..."
+            }    
+            input{
+                message "Is the manuall test ok?"
+                ok "Yes, the test passed"
+                submitter "max"
+                }
+        }
     }
 }//end
